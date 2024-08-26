@@ -19,6 +19,8 @@ app.use(cors({
 
 app.use(cookieParser());
 
+app.use(bodyParser.json({ limit: '100mb' })); // Increase the limit as needed
+app.use(bodyParser.urlencoded({ limit: '100mb', extended: true }));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
