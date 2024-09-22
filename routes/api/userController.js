@@ -218,20 +218,20 @@ router.post("/create/module", async (req,res) => {
 
 
 
-router.get("/fetch/modules/:id", async (req,res) => {
+router.get("/fetch/module/:name", async (req,res) => {
 
     try {
-        const moduleId = req.params.id;
-        const decryptedModuleId = decryptData(decodeURIComponent(moduleId));
-        const moduleObjectId = new ObjectID(decryptedModuleId)
-        const module = await Module.findById(moduleObjectId)
-    
+        const moduleName = req.params.name;
+        // const decryptedModuleId = decryptData(decodeURIComponent(moduleId));
+        // const moduleObjectId = new ObjectID(decryptedModuleId)
+        const module = await Module.findOne({title: moduleName})
     
         if (!module) {
             return res.status(404).json({message: "no such module exists"})
         }
+        const moduleStrId = String(module._id);
 
-        const activity = await Activity.findOne({moduleId: decryptedModuleId});
+        const activity = await Activity.findOne({moduleId: moduleStrId});
 
         if (!activity) {
             return res.status(404).json({message: "no such activity exists"})
