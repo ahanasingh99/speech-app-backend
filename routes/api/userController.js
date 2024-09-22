@@ -65,11 +65,11 @@ router.post("/create/user", async (req,res) => {
 router.post("/fetch", async (req, res) => {
     try {
         const encryptedEmail = req.body.encryptedEmail;
-        const encodedEncryptedEmail = decodeURIComponent(encryptedEmail);
-        const decryptedEmail = decryptData(encodedEncryptedEmail);
+        // const encodedEncryptedEmail = decodeURIComponent(encryptedEmail);
+        // const decryptedEmail = decryptData(encodedEncryptedEmail);
 
-        console.log(decryptedEmail);
-        const existingUser = await User.findOne({email : decryptedEmail});
+        // console.log(decryptedEmail);
+        const existingUser = await User.findOne({email : encryptedEmail});
 
         if (existingUser) {
             return res.status(200).json(existingUser);
@@ -175,7 +175,7 @@ router.post("/create/module", async (req,res) => {
 
     try {
         const {title, lessonSummary, video} = req.body;
-
+        
         if (!title || !lessonSummary || !video) {
             return res.status(400).json({message : "Necessary input are required to create module"});
         }
