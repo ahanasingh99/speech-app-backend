@@ -11,7 +11,7 @@ const userController = require('./routes/api/userController')
 
 const PORT = process.env.PORT || 4000;
 const app = express();
-
+//
 app.use(cors({
   origin: 'http://localhost:3000',  // replace with your application's URL
   credentials: true,  // IMPORTANT: enable credentials. This is needed for cookies to work
