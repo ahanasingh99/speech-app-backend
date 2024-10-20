@@ -9,6 +9,7 @@ const {decryptData, decryptObjectData, encrypt} = require("../../utils/authUtils
 const ObjectID = require("mongodb").ObjectId;
 const AWS = require('aws-sdk');
 const {OpenAI} = require("openai");
+const { v4: uuidv4 } = require('uuid');
 const {PromptTemplate} = require("@langchain/core/prompts")
 
 const s3 = new AWS.S3({
@@ -81,6 +82,56 @@ router.post("/fetch", async (req, res) => {
         handleError(error, res);
     }
 })
+
+router.get('/modules-with-activity', async (req, res) => {
+    try {
+        // Fetch all modules
+        const modules = await Module.find();
+
+        const modulesWithActivity = await Promise.all(modules.map(async (module) => {
+            const activity = await Activity.findOne({ moduleId: module._id.toString() });
+            return {
+                module,
+                activity
+            };
+        }));
+
+        return res.status(200).json(modulesWithActivity);
+    } catch (error) {
+        console.error('Error fetching modules and activity:', error);
+        return res.status(500).json({ message: 'Internal Server Error' });
+    }
+});
+
+router.post('/module-with-activity', async (req, res) => {
+    const { title, moduleId } = req.body;
+
+    try {
+        // Validate request body
+        if (!title || !moduleId) {
+            return res.status(400).json({ message: 'Title and moduleId are required' });
+        }
+
+        // Find the module by title and _id
+        const module = await Module.findOne({ title, _id: moduleId });
+
+        if (!module) {
+            return res.status(404).json({ message: 'Module not found' });
+        }
+
+        // Find the activity associated with the module using moduleId
+        const activity = await Activity.findOne({ moduleId });
+
+        if (!activity) {
+            return res.status(404).json({ message: 'Activity not found for this module' });
+        }
+
+        return res.status(200).json({ module, activity });
+    } catch (error) {
+        console.error('Error fetching module and activity:', error);
+        return res.status(500).json({ message: 'Internal Server Error' });
+    }
+});
 
 
 router.put("/update/profile/:email", async (req, res) => {
@@ -334,11 +385,20 @@ function removeAsterisks(text) {
 }
 
 router.post("/create/recording", async (req, res) => {
-    const { audio, mimeType, userId, moduleName, activityName } = req.body;
+    const { audio, mimeType, userEmail, moduleName, activityName } = req.body;
+    console.log(req.body)
   
-    if (!audio || !mimeType || !userId || !moduleName || !activityName) {
+    if (!audio || !mimeType || !userEmail || !moduleName || !activityName) {
       return res.status(400).json({ error: 'Invalid request payload' });
     }
+
+    const user = await User.findOne({ email: userEmail });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+  
+    const userId = String(user._id); // Convert the _id to a string
   
     // Decode base64 string to Buffer
     const audioBuffer = Buffer.from(audio, 'base64');
@@ -364,7 +424,7 @@ router.post("/create/recording", async (req, res) => {
       const s3ObjectUrl = baseUrl + objectKey;
 
       // Generate a sanitized transcription job name
-      const rawJobName = `${userId}-${moduleName}-${activityName}`;
+      const rawJobName = `${userId}-${moduleName}-${activityName}-${uuidv4()}`;
       const jobName = sanitizeJobName(rawJobName);
       const transcribeParams = {
         TranscriptionJobName: jobName,
@@ -417,11 +477,12 @@ router.put("/generate/recording/feedback", async (req, res) => {
     try {
       const moduleName = req.body.module;
       const activityName = req.body.activity;
+      const userId = new ObjectID(req.body.id);
 
       const activity = await Activity.findOne({title: activityName})
       const prompt = activity.prompt;
 
-      const recording = await Recording.findOne({moduleName: moduleName, activityName: activityName})
+      const recording = await Recording.findById(userId);
       const jobName = recording.transcriptionName
       
       const params = {
@@ -468,5 +529,29 @@ router.put("/generate/recording/feedback", async (req, res) => {
         handleError(error, res);
     }
 })
+
+router.get('/fetch/recordings/:email', async (req, res) => {
+    const email = decodeURIComponent(req.params.email);
+
+    try {
+        // Find the user by email
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Get the user's encryptedId as userId
+        const userId = String(user._id);
+
+        // Find all recordings related to this userId
+        const recordings = await Recording.find({ userId });
+
+        // Return the list of recordings
+        return res.status(200).json(recordings);
+    } catch (error) {
+        console.error('Error fetching recordings:', error);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+});
 
 module.exports = router;
